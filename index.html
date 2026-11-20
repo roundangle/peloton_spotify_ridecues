@@ -24,6 +24,7 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html, body { height: 100%; margin: 0; }
+html { touch-action: manipulation; } /* no double-tap zoom on iOS, so quick repeat taps on buttons register; pinch zoom still works */
 body { background: var(--bg); color: var(--text); font: 400 16px/1.45 var(--body); -webkit-font-smoothing: antialiased; }
 button, textarea { font: inherit; color: inherit; }
 button:focus-visible, textarea:focus-visible, input:focus-visible { outline: 3px solid var(--cad); outline-offset: 2px; }
