@@ -16,7 +16,7 @@
   --text: #eef1f8;
   --muted: #94a0bb;
   --cad: #5ec8f2;
-  --res: #ff9a4d;
+  --res: #ff5fd2;
   --display: "Barlow Condensed", "Arial Narrow", sans-serif;
   --body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
   color-scheme: dark;
@@ -128,7 +128,6 @@ body.paused .tiles { opacity: .45; }
     <div class="wrap">
       <div>
         <h1>Ride Cues</h1>
-        <p class="lede">Play your podcast on your phone. Put this screen where you can see it, and it shows the cadence and resistance to hold and when to change.</p>
       </div>
 
       <div>
@@ -139,7 +138,6 @@ body.paused .tiles { opacity: .45; }
       <div>
         <label class="k" for="script" style="display:block;margin-bottom:8px">Workout script</label>
         <textarea id="script" spellcheck="false" autocomplete="off"></textarea>
-        <p class="hint" style="margin-top:8px">One segment per line: time, cadence (rpm), resistance (0 to 100), label. Use a range such as 85-95 when you want a window. Lines starting with # are ignored.</p>
         <p id="err" role="alert"></p>
       </div>
 
@@ -173,9 +171,8 @@ body.paused .tiles { opacity: .45; }
       </details>
 
       <div class="opts">
-        <label><input type="checkbox" id="optBeep"> Beep on changes</label>
+        <label><input type="checkbox" id="optBeep" checked> Beep on changes</label>
       </div>
-      <p class="hint">Resistance targets use the 0 to 100 number on the Peloton screen. Treat the presets as starting points and edit them to suit your legs. If your screen dims, turn off auto-lock for the ride.</p>
       <button class="btn primary" id="start" type="button">Start ride</button>
     </div>
   </section>
@@ -356,7 +353,7 @@ function fmt(sec) {
   });
 
   /* Audio and wake lock */
-  const opts = { beep: false };
+  const opts = { beep: true };
   $('optBeep').addEventListener('change', function (e) {
     opts.beep = e.target.checked;
     try { localStorage.setItem('ridecues-beep', opts.beep ? '1' : '0'); } catch (err) {}
@@ -697,7 +694,7 @@ function fmt(sec) {
   /* Initial state */
   let saved = null, savedBeep = null;
   try { saved = localStorage.getItem('ridecues-script'); savedBeep = localStorage.getItem('ridecues-beep'); } catch (e) {}
-  if (savedBeep === '1') { opts.beep = true; $('optBeep').checked = true; }
+  if (savedBeep === '0') { opts.beep = false; $('optBeep').checked = false; }
   if (saved && saved.trim()) { script.value = saved; refresh(); } else { refresh(); }
   loadPresets().then(function (list) {
     PRESETS = list;
