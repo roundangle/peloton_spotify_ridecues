@@ -496,6 +496,7 @@ function fmt(sec) {
   setInterval(tick, 200);
 
   /* Spotify (Authorization Code with PKCE, no client secret) */
+  const DEFAULT_CID = '17e70fd2fd034419a1c87b3808899d88'; /* public identifier, not a secret; the field below can override it */
   const SCOPES = 'user-read-playback-state user-modify-playback-state';
   const redirectUri = location.origin + location.pathname;
   const SP = { cid: '', tok: null, state: null, fetchedAt: 0, lastDevice: null, lockUntil: 0, busy: Promise.resolve(), msgTimer: null };
@@ -556,7 +557,7 @@ function fmt(sec) {
     if (!st2 || st2 !== lsGet('ridecues-sp-state')) { spNote('Sign-in check failed. Tap Connect Spotify again.'); return; }
     const ok = await tokenRequest(new URLSearchParams({
       grant_type: 'authorization_code', code: code, redirect_uri: redirectUri,
-      client_id: lsGet('ridecues-sp-cid') || '', code_verifier: lsGet('ridecues-sp-verifier') || ''
+      client_id: lsGet('ridecues-sp-cid') || DEFAULT_CID, code_verifier: lsGet('ridecues-sp-verifier') || ''
     }));
     lsDel('ridecues-sp-verifier'); lsDel('ridecues-sp-state');
     if (ok) spNote('Connected. Start your podcast in Spotify, then start the ride.');
@@ -674,7 +675,7 @@ function fmt(sec) {
   setInterval(function () { if (st.active && SP.tok && !document.hidden) poll(); }, 5000);
   document.addEventListener('visibilitychange', function () { if (!document.hidden && st.active) poll(); });
 
-  SP.cid = lsGet('ridecues-sp-cid') || '';
+  SP.cid = lsGet('ridecues-sp-cid') || DEFAULT_CID;
   $('spCid').value = SP.cid;
   try { SP.tok = JSON.parse(lsGet('ridecues-sp-tok') || 'null'); } catch (e) { SP.tok = null; }
   handleRedirect().then(updateSpSetup);
