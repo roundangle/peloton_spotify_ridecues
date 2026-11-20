@@ -108,6 +108,9 @@ body.paused .tiles { opacity: .45; }
 .spnow #spMsg { color: #ffb3a7; white-space: normal; }
 .spbtns { flex: 1 1 240px; display: flex; gap: 8px; }
 .spbtns .btn { flex: 1; min-height: 56px; padding: 0 8px; font: 700 24px/1 var(--display); letter-spacing: .03em; }
+.spbtns .btn svg { width: 32px; height: 32px; display: block; margin: 0 auto; }
+#spPlay .i-pause, #spPlay.playing .i-play { display: none; }
+#spPlay.playing .i-pause { display: block; }
 @media (max-height: 720px) { svg.profile { height: 56px; } }
 @media (prefers-reduced-motion: reduce) {
   .next.soon, #flash.go { animation: none; }
@@ -198,9 +201,9 @@ body.paused .tiles { opacity: .45; }
         <span id="spMsg" role="status"></span>
       </div>
       <div class="spbtns">
-        <button class="btn" id="spBack" type="button" aria-label="Back 15 seconds">&minus;15</button>
-        <button class="btn" id="spPlay" type="button">Play</button>
-        <button class="btn" id="spFwd" type="button" aria-label="Forward 15 seconds">+15</button>
+        <button class="btn" id="spBack" type="button" aria-label="Back 15 seconds"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg></button>
+        <button class="btn" id="spPlay" type="button" aria-label="Play"><svg class="i-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z"/></svg><svg class="i-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5.5" y="4.5" width="4.5" height="15" rx="1"/><rect x="14" y="4.5" width="4.5" height="15" rx="1"/></svg></button>
+        <button class="btn" id="spFwd" type="button" aria-label="Forward 15 seconds"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
       </div>
     </div>
     <svg id="live" class="profile" preserveAspectRatio="none" role="img" aria-label="Workout progress"></svg>
@@ -613,7 +616,9 @@ function fmt(sec) {
     const s = SP.state;
     $('spTitle').textContent = s ? s.title : 'Nothing playing';
     $('spSub').textContent = s ? (s.sub ? s.sub + '  ·  ' : '') + fmt(curProgress() / 1000) + ' / ' + fmt(s.dur / 1000) : 'Open Spotify and press play';
-    $('spPlay').textContent = s && s.playing ? 'Pause' : 'Play';
+    const playing = !!(s && s.playing);
+    $('spPlay').classList.toggle('playing', playing);
+    $('spPlay').setAttribute('aria-label', playing ? 'Pause' : 'Play');
   }
 
   async function poll() {
