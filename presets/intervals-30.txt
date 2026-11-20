@@ -1,0 +1,21 @@
+# Intervals 30
+5:00, 80, 30, Warm-up
+3:00, 90, 40, Flat road
+1:00, 100, 45, Fast
+1:00, 70, 55, Climb
+3:00, 90, 40, Flat road
+1:00, 100, 45, Fast
+1:00, 70, 55, Climb
+3:00, 90, 40, Flat road
+1:00, 100, 45, Fast
+1:00, 70, 55, Climb
+3:00, 90, 40, Flat road
+1:00, 100, 45, Fast
+1:00, 70, 55, Climb
+0:30, 110, 45, Sprint
+0:30, 80, 30, Recover
+0:30, 110, 45, Sprint
+0:30, 80, 30, Recover
+0:30, 110, 45, Sprint
+0:30, 80, 30, Recover
+2:00, 80, 25, Cool-down

@@ -1,0 +1,4 @@
+# Steady 20
+3:00, 80, 30, Warm-up
+14:00, 85, 40, Steady
+3:00, 75, 25, Cool-down

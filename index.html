@@ -150,7 +150,7 @@ body.paused .tiles { opacity: .45; }
       <details class="card" id="spCard" open>
         <summary>Spotify controls <span class="st" id="spStatus">Not connected</span></summary>
         <div class="body">
-          <p class="hint">Adds play/pause and 15 second skip buttons to the ride screen. Needs Spotify Premium and a free developer app.</p>
+          <p class="hint">Adds play/pause, back 15 seconds and forward 30 seconds buttons to the ride screen. Needs Spotify Premium and a free developer app.</p>
           <ol>
             <li>Open <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">developer.spotify.com/dashboard</a> and create an app. Choose <b>Web API</b> when it asks which APIs you will use.</li>
             <li>Add this <b>Redirect URI</b> exactly as shown, then save:</li>
@@ -203,7 +203,7 @@ body.paused .tiles { opacity: .45; }
       <div class="spbtns">
         <button class="btn" id="spBack" type="button" aria-label="Back 15 seconds"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg></button>
         <button class="btn" id="spPlay" type="button" aria-label="Play"><svg class="i-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z"/></svg><svg class="i-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5.5" y="4.5" width="4.5" height="15" rx="1"/><rect x="14" y="4.5" width="4.5" height="15" rx="1"/></svg></button>
-        <button class="btn" id="spFwd" type="button" aria-label="Forward 15 seconds"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+        <button class="btn" id="spFwd" type="button" aria-label="Forward 30 seconds"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
       </div>
     </div>
     <svg id="live" class="profile" preserveAspectRatio="none" role="img" aria-label="Workout progress"></svg>
@@ -273,19 +273,25 @@ function fmt(sec) {
 (function () {
   const $ = function (id) { return document.getElementById(id); };
 
-  /* Presets */
-  const rep = function (n, rows) { let out = []; for (let i = 0; i < n; i++) out = out.concat(rows); return out; };
-  const PRESETS = [
-    { name: 'Intervals 30', rows: [['5:00', 80, 30, 'Warm-up']]
-        .concat(rep(4, [['3:00', 90, 40, 'Flat road'], ['1:00', 100, 45, 'Fast'], ['1:00', 70, 55, 'Climb']]))
-        .concat(rep(3, [['0:30', 110, 45, 'Sprint'], ['0:30', 80, 30, 'Recover']]))
-        .concat([['2:00', 80, 25, 'Cool-down']]) },
-    { name: 'Rolling hills 30', rows: [['5:00', 80, 30, 'Warm-up']]
-        .concat(rep(3, [['2:00', 85, 35, 'Roll'], ['2:00', 75, 45, 'Hill start'], ['2:00', 65, 55, 'Climb'], ['1:00', 80, 40, 'Crest']]))
-        .concat([['2:00', 85, 30, 'Spin out'], ['2:00', 75, 25, 'Cool-down']]) },
-    { name: 'Steady 20', rows: [['3:00', 80, 30, 'Warm-up'], ['14:00', 85, 40, 'Steady'], ['3:00', 75, 25, 'Cool-down']] }
-  ];
-  const toText = function (rows) { return rows.map(function (r) { return r.join(', '); }).join('\n'); };
+  /* Presets: one text file per workout in presets/, listed in presets/presets.json.
+     The chip name comes from the file's first "# Name" line, or the file name if there is none. */
+  let PRESETS = [];
+  function presetName(file, text) {
+    const m = /^\s*#\s*(.+)/.exec(text);
+    return m ? m[1].trim() : file.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ');
+  }
+  async function loadPresets() {
+    const list = await (await fetch('presets/presets.json', { cache: 'no-cache' })).json();
+    const loaded = await Promise.all(list.map(async function (file) {
+      try {
+        const r = await fetch('presets/' + file, { cache: 'no-cache' });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const text = await r.text();
+        return { name: presetName(file, text), text: text.trim() };
+      } catch (e) { console.warn('Preset ' + file + ' did not load:', e); return null; }
+    }));
+    return loaded.filter(Boolean);
+  }
 
   /* Profile drawing */
   const NS = 'http://www.w3.org/2000/svg';
@@ -317,16 +323,19 @@ function fmt(sec) {
   /* Setup screen */
   const script = $('script');
   function selectPreset(i) {
-    script.value = toText(PRESETS[i].rows);
+    script.value = PRESETS[i].text;
     document.querySelectorAll('.chip').forEach(function (b, j) { b.setAttribute('aria-pressed', String(i === j)); });
     refresh();
   }
-  PRESETS.forEach(function (p, i) {
-    const b = document.createElement('button');
-    b.type = 'button'; b.className = 'chip'; b.textContent = p.name; b.setAttribute('aria-pressed', 'false');
-    b.addEventListener('click', function () { selectPreset(i); });
-    $('presets').appendChild(b);
-  });
+  function renderPresets() {
+    $('presets').replaceChildren();
+    PRESETS.forEach(function (p, i) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'chip'; b.textContent = p.name; b.setAttribute('aria-pressed', 'false');
+      b.addEventListener('click', function () { selectPreset(i); });
+      $('presets').appendChild(b);
+    });
+  }
 
   function refresh() {
     const r = parseScript(script.value);
@@ -674,7 +683,7 @@ function fmt(sec) {
     SP.tok = null; SP.state = null; lsDel('ridecues-sp-tok'); spNote('Disconnected.'); updateSpSetup();
   });
   $('spBack').addEventListener('click', function () { seekBy(-15000); });
-  $('spFwd').addEventListener('click', function () { seekBy(15000); });
+  $('spFwd').addEventListener('click', function () { seekBy(30000); });
   $('spPlay').addEventListener('click', togglePlay);
   setInterval(function () { if (st.active && SP.tok) renderSpot(); }, 1000);
   setInterval(function () { if (st.active && SP.tok && !document.hidden) poll(); }, 5000);
@@ -689,7 +698,21 @@ function fmt(sec) {
   let saved = null, savedBeep = null;
   try { saved = localStorage.getItem('ridecues-script'); savedBeep = localStorage.getItem('ridecues-beep'); } catch (e) {}
   if (savedBeep === '1') { opts.beep = true; $('optBeep').checked = true; }
-  if (saved && saved.trim()) { script.value = saved; refresh(); } else { selectPreset(0); }
+  if (saved && saved.trim()) { script.value = saved; refresh(); } else { refresh(); }
+  loadPresets().then(function (list) {
+    PRESETS = list;
+    renderPresets();
+    if (!PRESETS.length) throw new Error('presets/presets.json lists no presets that loaded');
+    if (!(saved && saved.trim()) && !script.value.trim()) selectPreset(0);
+  }).catch(function (e) {
+    console.warn('Presets did not load:', e);
+    const p = document.createElement('p');
+    p.className = 'hint';
+    p.textContent = location.protocol === 'file:'
+      ? 'Presets load from the presets folder, which needs this page on a web address. You can still type or paste a script below.'
+      : 'Presets could not be loaded. You can still type or paste a script below.';
+    $('presets').replaceChildren(p);
+  });
 })();
 </script>
 </body>

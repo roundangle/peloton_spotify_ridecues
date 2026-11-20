@@ -1,0 +1,16 @@
+# Rolling Hills 30
+5:00, 80, 30, Warm-up
+2:00, 85, 35, Roll
+2:00, 75, 45, Hill start
+2:00, 65, 55, Climb
+1:00, 80, 40, Crest
+2:00, 85, 35, Roll
+2:00, 75, 45, Hill start
+2:00, 65, 55, Climb
+1:00, 80, 40, Crest
+2:00, 85, 35, Roll
+2:00, 75, 45, Hill start
+2:00, 65, 55, Climb
+1:00, 80, 40, Crest
+2:00, 85, 30, Spin out
+2:00, 75, 25, Cool-down
