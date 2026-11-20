@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ride Cues</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* Layout: a setup column (presets, script, profile preview) and a ride screen of two huge metric tiles, a countdown strip and a profile timeline. */
+  --bg: #0d1220;
+  --panel: #151c2e;
+  --line: #2a3552;
+  --text: #eef1f8;
+  --muted: #94a0bb;
+  --cad: #5ec8f2;
+  --res: #ff9a4d;
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--text); font: 400 16px/1.45 var(--body); -webkit-font-smoothing: antialiased; }
+button, textarea { font: inherit; color: inherit; }
+button:focus-visible, textarea:focus-visible, input:focus-visible { outline: 3px solid var(--cad); outline-offset: 2px; }
+
+/* Setup */
+#setup { height: 100%; overflow: auto; }
+.wrap { max-width: 720px; margin: 0 auto; padding: 24px 16px 40px; display: flex; flex-direction: column; gap: 16px; }
+h1 { font: 700 44px/1 var(--display); letter-spacing: .01em; margin: 0; }
+.lede { margin: 0; color: var(--muted); max-width: 60ch; text-wrap: balance; }
+.k { font: 600 13px/1 var(--body); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 10px 16px; cursor: pointer; min-height: 44px; }
+.chip[aria-pressed="true"] { border-color: var(--text); background: #1e2842; }
+textarea { width: 100%; min-height: 260px; resize: vertical; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; font: 14px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, monospace; tab-size: 2; }
+.hint { margin: 0; color: var(--muted); font-size: 14px; }
+#err { margin: 0; color: #ffb3a7; font-size: 14px; white-space: pre-line; }
+#summary { font-variant-numeric: tabular-nums; color: var(--text); }
+.legend { display: flex; gap: 16px; color: var(--muted); font-size: 14px; flex-wrap: wrap; }
+.legend i { display: inline-block; width: 18px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.legend .l-res { background: var(--res); opacity: .6; }
+.legend .l-cad { background: var(--cad); height: 3px; vertical-align: 3px; }
+.opts { display: flex; gap: 20px; flex-wrap: wrap; }
+.opts label { display: flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; }
+.opts input { width: 20px; height: 20px; accent-color: var(--cad); }
+.btn { border: 1px solid var(--line); background: var(--panel); border-radius: 12px; min-height: 56px; padding: 0 20px; cursor: pointer; font-weight: 600; }
+.btn.primary { background: var(--cad); color: #08101c; border-color: var(--cad); font: 700 26px/1 var(--display); letter-spacing: .04em; text-transform: uppercase; }
+svg.profile { width: 100%; height: 90px; display: block; background: var(--panel); border-radius: 10px; }
+.bar { fill: var(--res); opacity: .45; }
+.cadline { fill: none; stroke: var(--cad); stroke-width: 2; stroke-linejoin: round; }
+.played { fill: #000; opacity: .45; }
+.head { stroke: var(--text); stroke-width: 2; }
+
+/* Ride */
+#ride { height: 100%; display: flex; flex-direction: column; gap: 12px; padding: 12px 16px 16px; position: relative; }
+.top { display: grid; grid-template-columns: 1fr minmax(0, 2fr) 1fr; align-items: center; gap: 8px; }
+.top .t { display: flex; flex-direction: column; gap: 4px; font-variant-numeric: tabular-nums; }
+.top .t b { font: 600 28px/1 var(--display); }
+.top .t.r { text-align: right; align-items: flex-end; }
+#segLabel { font: 700 34px/1.05 var(--display); text-align: center; text-wrap: balance; }
+.tiles { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.tile { background: var(--panel); border: 3px solid var(--line); border-radius: 18px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px; min-width: 0; transition: border-color .3s; }
+.tile.cad { --c: var(--cad); }
+.tile.res { --c: var(--res); }
+.tile .k { color: var(--c); }
+.val { font: 700 clamp(72px, min(26vw, 34vh), 280px)/.9 var(--display); color: var(--c); font-variant-numeric: tabular-nums; }
+.val.long { font-size: clamp(48px, min(15vw, 20vh), 170px); }
+.unit { color: var(--muted); font-size: 15px; }
+.tile.changed { border-color: var(--text); }
+.next { background: var(--panel); border: 2px solid var(--line); border-radius: 14px; padding: 10px 14px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.next .count { display: flex; flex-direction: column; gap: 4px; min-width: 120px; }
+.next .count b { font: 700 56px/1 var(--display); font-variant-numeric: tabular-nums; }
+.nextvals { display: flex; gap: 8px 22px; flex-wrap: wrap; font: 600 22px/1.2 var(--display); letter-spacing: .02em; }
+.nextvals .c { color: var(--cad); }
+.nextvals .r { color: var(--res); }
+.nextvals .n { color: var(--muted); font-family: var(--body); font-size: 15px; font-weight: 500; width: 100%; }
+.next.soon { border-color: var(--text); animation: pulse .8s ease-in-out infinite alternate; }
+@keyframes pulse { from { background: var(--panel); } to { background: #263154; } }
+.controls { display: flex; gap: 10px; }
+.controls .btn { flex: 1; }
+#flash { position: fixed; inset: 0; pointer-events: none; background: #fff; opacity: 0; }
+#flash.go { animation: flash .9s ease-out; }
+@keyframes flash { from { opacity: .4; } to { opacity: 0; } }
+body.paused .tiles { opacity: .45; }
+#done { position: absolute; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; text-align: center; padding: 24px; }
+#done h2 { font: 700 64px/1 var(--display); margin: 0; }
+/* Spotify */
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 4px 14px; }
+.card summary { cursor: pointer; min-height: 48px; display: flex; align-items: center; gap: 10px; font-weight: 600; }
+.card summary .st { margin-left: auto; font-weight: 500; color: var(--muted); font-size: 14px; }
+.card .body { display: flex; flex-direction: column; gap: 12px; padding: 4px 0 14px; }
+.card ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 15px; }
+.card ol b { color: var(--text); font-weight: 500; }
+.card a { color: var(--cad); }
+.card input[type="text"] { width: 100%; min-height: 48px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 0 12px; font: 15px ui-monospace, Menlo, Consolas, monospace; }
+.card code { display: block; word-break: break-all; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font: 14px ui-monospace, Menlo, Consolas, monospace; user-select: all; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; }
+.row .btn { min-height: 48px; }
+.spot { background: var(--panel); border: 2px solid var(--line); border-radius: 14px; padding: 8px 10px; display: flex; gap: 10px 14px; flex-wrap: wrap; align-items: center; }
+.spnow { flex: 1 1 200px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.spnow b { font: 600 20px/1.15 var(--display); letter-spacing: .02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.spnow span { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.spnow #spMsg { color: #ffb3a7; white-space: normal; }
+.spbtns { flex: 1 1 240px; display: flex; gap: 8px; }
+.spbtns .btn { flex: 1; min-height: 56px; padding: 0 8px; font: 700 24px/1 var(--display); letter-spacing: .03em; }
+@media (max-height: 720px) { svg.profile { height: 56px; } }
+@media (prefers-reduced-motion: reduce) {
+  .next.soon, #flash.go { animation: none; }
+  .tile { transition: none; }
+}
+@media (max-width: 480px) {
+  #segLabel { font-size: 26px; }
+  .next .count b { font-size: 44px; }
+}
+</style>
+</head>
+<body>
+<main id="app">
+  <section id="setup">
+    <div class="wrap">
+      <div>
+        <h1>Ride Cues</h1>
+        <p class="lede">Play your podcast on your phone. Put this screen where you can see it, and it shows the cadence and resistance to hold and when to change.</p>
+      </div>
+
+      <div>
+        <div class="k" style="margin-bottom:8px">Start from</div>
+        <div class="chips" id="presets"></div>
+      </div>
+
+      <div>
+        <label class="k" for="script" style="display:block;margin-bottom:8px">Workout script</label>
+        <textarea id="script" spellcheck="false" autocomplete="off"></textarea>
+        <p class="hint" style="margin-top:8px">One segment per line: time, cadence (rpm), resistance (0 to 100), label. Use a range such as 85-95 when you want a window. Lines starting with # are ignored.</p>
+        <p id="err" role="alert"></p>
+      </div>
+
+      <div id="summary"></div>
+      <svg id="preview" class="profile" preserveAspectRatio="none" role="img" aria-label="Workout profile preview"></svg>
+      <div class="legend"><span><i class="l-res"></i>Bars: resistance</span><span><i class="l-cad"></i>Line: cadence</span></div>
+
+      <details class="card" id="spCard" open>
+        <summary>Spotify controls <span class="st" id="spStatus">Not connected</span></summary>
+        <div class="body">
+          <p class="hint">Adds play/pause and 15 second skip buttons to the ride screen. Needs Spotify Premium and a free developer app.</p>
+          <ol>
+            <li>Open <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">developer.spotify.com/dashboard</a> and create an app. Choose <b>Web API</b> when it asks which APIs you will use.</li>
+            <li>Add this <b>Redirect URI</b> exactly as shown, then save:</li>
+          </ol>
+          <code id="spRedirect"></code>
+          <div class="row"><button class="btn" id="spCopy" type="button">Copy redirect URI</button></div>
+          <ol start="3">
+            <li>Copy the app's <b>Client ID</b> and paste it below.</li>
+            <li>Tap <b>Connect Spotify</b> and approve.</li>
+          </ol>
+          <label class="k" for="spCid">Client ID</label>
+          <input type="text" id="spCid" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste your Client ID">
+          <div class="row">
+            <button class="btn" id="spConnect" type="button">Connect Spotify</button>
+            <button class="btn" id="spDisconnect" type="button" hidden>Disconnect</button>
+          </div>
+          <p id="spNote" class="hint" role="status"></p>
+          <p class="hint">Open this page from the same address every time. A different address needs its own redirect URI.</p>
+        </div>
+      </details>
+
+      <div class="opts">
+        <label><input type="checkbox" id="optBeep"> Beep on changes</label>
+      </div>
+      <p class="hint">Resistance targets use the 0 to 100 number on the Peloton screen. Treat the presets as starting points and edit them to suit your legs. If your screen dims, turn off auto-lock for the ride.</p>
+      <button class="btn primary" id="start" type="button">Start ride</button>
+    </div>
+  </section>
+
+  <section id="ride" hidden>
+    <div class="top">
+      <div class="t"><span class="k">Elapsed</span><b id="elapsed">0:00</b></div>
+      <div id="segLabel">Warm-up</div>
+      <div class="t r"><span class="k">Left</span><b id="left">0:00</b></div>
+    </div>
+    <div class="tiles">
+      <div class="tile cad" id="tileCad"><span class="k">Cadence</span><div class="val" id="cadVal">0</div><span class="unit">rpm</span></div>
+      <div class="tile res" id="tileRes"><span class="k">Resistance</span><div class="val" id="resVal">0</div><span class="unit">out of 100</span></div>
+    </div>
+    <div class="next" id="next">
+      <div class="count"><span class="k" id="countLabel">Next change in</span><b id="countdown">0:00</b></div>
+      <div class="nextvals" id="nextVals"></div>
+    </div>
+    <div class="spot" id="spot" hidden>
+      <div class="spnow">
+        <b id="spTitle">Nothing playing</b>
+        <span id="spSub">Open Spotify and press play</span>
+        <span id="spMsg" role="status"></span>
+      </div>
+      <div class="spbtns">
+        <button class="btn" id="spBack" type="button" aria-label="Back 15 seconds">&minus;15</button>
+        <button class="btn" id="spPlay" type="button">Play</button>
+        <button class="btn" id="spFwd" type="button" aria-label="Forward 15 seconds">+15</button>
+      </div>
+    </div>
+    <svg id="live" class="profile" preserveAspectRatio="none" role="img" aria-label="Workout progress"></svg>
+    <div class="controls">
+      <button class="btn" id="pause" type="button">Pause</button>
+      <button class="btn" id="skip" type="button">Skip segment</button>
+      <button class="btn" id="end" type="button">End ride</button>
+    </div>
+    <div id="done" hidden>
+      <h2>Ride complete</h2>
+      <p class="lede" id="doneText"></p>
+      <button class="btn primary" id="back" type="button">Back to setup</button>
+    </div>
+    <div id="flash"></div>
+  </section>
+</main>
+
+<script>
+/*PURE-START*/
+function parseTime(s) {
+  s = String(s).trim();
+  let m = /^(\d{1,3}):([0-5]\d)$/.exec(s);
+  if (m) return (+m[1]) * 60 + (+m[2]);
+  if (/^\d{1,3}$/.test(s)) return (+s) * 60;
+  return NaN;
+}
+function parseMetric(s) {
+  const m = /^(\d{1,3})(?:\s*[-–]\s*(\d{1,3}))?$/.exec(String(s).trim());
+  if (!m) return null;
+  const lo = +m[1];
+  const hi = m[2] !== undefined ? +m[2] : lo;
+  if (hi < lo) return null;
+  return { lo: lo, hi: hi, text: m[2] !== undefined ? lo + '–' + hi : String(lo), mid: (lo + hi) / 2 };
+}
+function parseScript(text) {
+  const segments = [], errors = [];
+  let t = 0;
+  String(text).split(/\r?\n/).forEach(function (raw, i) {
+    const line = raw.trim();
+    if (!line || line[0] === '#') return;
+    const parts = line.split(',').map(function (p) { return p.trim(); });
+    const n = i + 1;
+    if (parts.length < 3) { errors.push('Line ' + n + ': needs time, cadence and resistance, separated by commas.'); return; }
+    const dur = parseTime(parts[0]);
+    const cad = parseMetric(parts[1]);
+    const res = parseMetric(parts[2]);
+    if (!(dur > 0)) { errors.push('Line ' + n + ': "' + parts[0] + '" is not a time like 2:30.'); return; }
+    if (!cad || cad.hi > 200) { errors.push('Line ' + n + ': cadence "' + parts[1] + '" should be a number like 90 or a range like 85-95.'); return; }
+    if (!res || res.hi > 100) { errors.push('Line ' + n + ': resistance "' + parts[2] + '" should be 0 to 100.'); return; }
+    segments.push({ start: t, dur: dur, end: t + dur, cad: cad, res: res, label: parts.slice(3).join(', ') || 'Segment ' + (segments.length + 1) });
+    t += dur;
+  });
+  return { segments: segments, errors: errors, total: t };
+}
+function segmentAt(segments, elapsed) {
+  for (let i = 0; i < segments.length; i++) if (elapsed < segments[i].end) return i;
+  return -1;
+}
+function fmt(sec) {
+  sec = Math.max(0, Math.floor(sec));
+  const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
+  const ss = String(s).padStart(2, '0');
+  return h ? h + ':' + String(m).padStart(2, '0') + ':' + ss : m + ':' + ss;
+}
+/*PURE-END*/
+
+(function () {
+  const $ = function (id) { return document.getElementById(id); };
+
+  /* Presets */
+  const rep = function (n, rows) { let out = []; for (let i = 0; i < n; i++) out = out.concat(rows); return out; };
+  const PRESETS = [
+    { name: 'Intervals 30', rows: [['5:00', 80, 30, 'Warm-up']]
+        .concat(rep(4, [['3:00', 90, 40, 'Flat road'], ['1:00', 100, 45, 'Fast'], ['1:00', 70, 55, 'Climb']]))
+        .concat(rep(3, [['0:30', 110, 45, 'Sprint'], ['0:30', 80, 30, 'Recover']]))
+        .concat([['2:00', 80, 25, 'Cool-down']]) },
+    { name: 'Rolling hills 30', rows: [['5:00', 80, 30, 'Warm-up']]
+        .concat(rep(3, [['2:00', 85, 35, 'Roll'], ['2:00', 75, 45, 'Hill start'], ['2:00', 65, 55, 'Climb'], ['1:00', 80, 40, 'Crest']]))
+        .concat([['2:00', 85, 30, 'Spin out'], ['2:00', 75, 25, 'Cool-down']]) },
+    { name: 'Steady 20', rows: [['3:00', 80, 30, 'Warm-up'], ['14:00', 85, 40, 'Steady'], ['3:00', 75, 25, 'Cool-down']] }
+  ];
+  const toText = function (rows) { return rows.map(function (r) { return r.join(', '); }).join('\n'); };
+
+  /* Profile drawing */
+  const NS = 'http://www.w3.org/2000/svg';
+  function node(name, attrs) { const e = document.createElementNS(NS, name); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; }
+  function drawProfile(svg, segs, total, live) {
+    svg.replaceChildren();
+    const W = 1000, H = 100;
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    if (!segs.length) return null;
+    segs.forEach(function (s) {
+      const x = s.start / total * W, w = s.dur / total * W, h = s.res.mid / 100 * H;
+      svg.appendChild(node('rect', { x: x + 0.5, y: H - h, width: Math.max(0, w - 1), height: h, 'class': 'bar' }));
+    });
+    let d = '';
+    segs.forEach(function (s, i) {
+      const x0 = s.start / total * W, x1 = s.end / total * W;
+      const c = Math.min(Math.max(s.cad.mid, 50), 120);
+      const y = H - (c - 50) / 70 * H;
+      d += (i ? 'V' + y + ' ' : 'M' + x0 + ' ' + y + ' ') + 'H' + x1 + ' ';
+    });
+    svg.appendChild(node('path', { d: d, 'class': 'cadline', 'vector-effect': 'non-scaling-stroke' }));
+    if (!live) return null;
+    const played = node('rect', { x: 0, y: 0, width: 0, height: H, 'class': 'played' });
+    const head = node('line', { x1: 0, x2: 0, y1: 0, y2: H, 'class': 'head', 'vector-effect': 'non-scaling-stroke' });
+    svg.appendChild(played); svg.appendChild(head);
+    return { played: played, head: head };
+  }
+
+  /* Setup screen */
+  const script = $('script');
+  function selectPreset(i) {
+    script.value = toText(PRESETS[i].rows);
+    document.querySelectorAll('.chip').forEach(function (b, j) { b.setAttribute('aria-pressed', String(i === j)); });
+    refresh();
+  }
+  PRESETS.forEach(function (p, i) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip'; b.textContent = p.name; b.setAttribute('aria-pressed', 'false');
+    b.addEventListener('click', function () { selectPreset(i); });
+    $('presets').appendChild(b);
+  });
+
+  function refresh() {
+    const r = parseScript(script.value);
+    $('err').textContent = r.errors.join('\n');
+    if (r.segments.length) {
+      const cads = r.segments.map(function (s) { return [s.cad.lo, s.cad.hi]; }).flat();
+      const ress = r.segments.map(function (s) { return [s.res.lo, s.res.hi]; }).flat();
+      $('summary').textContent = r.segments.length + ' segments, ' + fmt(r.total) + ' total. Cadence ' + Math.min.apply(null, cads) + ' to ' + Math.max.apply(null, cads) + ' rpm. Resistance ' + Math.min.apply(null, ress) + ' to ' + Math.max.apply(null, ress) + '.';
+    } else {
+      $('summary').textContent = 'No segments yet.';
+    }
+    drawProfile($('preview'), r.segments, r.total, false);
+    try { localStorage.setItem('ridecues-script', script.value); } catch (e) {}
+  }
+  script.addEventListener('input', function () {
+    document.querySelectorAll('.chip').forEach(function (b) { b.setAttribute('aria-pressed', 'false'); });
+    refresh();
+  });
+
+  /* Audio and wake lock */
+  const opts = { beep: false };
+  $('optBeep').addEventListener('change', function (e) {
+    opts.beep = e.target.checked;
+    try { localStorage.setItem('ridecues-beep', opts.beep ? '1' : '0'); } catch (err) {}
+  });
+  let ac = null;
+  function tone(freq, dur, when) {
+    if (!ac || !opts.beep) return;
+    try {
+      const t0 = ac.currentTime + (when || 0);
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'sine'; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.linearRampToValueAtTime(0.12, t0 + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(g); g.connect(ac.destination);
+      o.start(t0); o.stop(t0 + dur + 0.03);
+    } catch (e) {}
+  }
+  let wake = null;
+  async function lock() { try { if ('wakeLock' in navigator) wake = await navigator.wakeLock.request('screen'); } catch (e) {} }
+  function unlock() { try { if (wake) wake.release(); } catch (e) {} wake = null; }
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && st.active) lock(); });
+
+  /* Ride state */
+  const st = { active: false, running: false, segs: [], total: 0, elapsed: 0, last: 0, idx: 0, beepSec: null, ph: null };
+
+  function setMetric(el, m) { el.textContent = m.text; el.classList.toggle('long', m.text.length > 3); }
+  function arrowWord(a, b) { return b.mid > a.mid ? '↑ to ' : b.mid < a.mid ? '↓ to ' : 'stays '; }
+
+  function render() {
+    const s = st.segs[st.idx];
+    if (!s) return;
+    const rem = s.end - st.elapsed;
+    $('segLabel').textContent = s.label;
+    setMetric($('cadVal'), s.cad);
+    setMetric($('resVal'), s.res);
+    $('elapsed').textContent = fmt(st.elapsed);
+    $('left').textContent = fmt(Math.ceil(st.total - st.elapsed));
+    $('countdown').textContent = fmt(Math.ceil(rem));
+    const n = st.segs[st.idx + 1];
+    const box = $('nextVals');
+    box.replaceChildren();
+    if (n) {
+      $('countLabel').textContent = 'Next change in';
+      const c = document.createElement('span'); c.className = 'c'; c.textContent = 'Cadence ' + arrowWord(s.cad, n.cad) + n.cad.text;
+      const r = document.createElement('span'); r.className = 'r'; r.textContent = 'Resistance ' + arrowWord(s.res, n.res) + n.res.text;
+      const l = document.createElement('span'); l.className = 'n'; l.textContent = 'Then: ' + n.label;
+      box.appendChild(c); box.appendChild(r); box.appendChild(l);
+    } else {
+      $('countLabel').textContent = 'Ride ends in';
+      const l = document.createElement('span'); l.className = 'n'; l.textContent = 'Last segment';
+      box.appendChild(l);
+    }
+    $('next').classList.toggle('soon', rem <= 5 && st.running);
+    if (st.ph) {
+      const x = Math.min(1000, st.elapsed / st.total * 1000);
+      st.ph.head.setAttribute('x1', x); st.ph.head.setAttribute('x2', x);
+      st.ph.played.setAttribute('width', x);
+    }
+  }
+
+  function onChange(prev) {
+    const a = st.segs[prev], b = st.segs[st.idx];
+    const f = $('flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go');
+    const tc = $('tileCad'), tr = $('tileRes');
+    if (a.cad.text !== b.cad.text) tc.classList.add('changed');
+    if (a.res.text !== b.res.text) tr.classList.add('changed');
+    setTimeout(function () { tc.classList.remove('changed'); tr.classList.remove('changed'); }, 2500);
+    tone(880, 0.15, 0); tone(1175, 0.2, 0.18);
+  }
+
+  function tick() {
+    const now = performance.now();
+    if (st.active && st.running) st.elapsed += (now - st.last) / 1000;
+    st.last = now;
+    if (!st.active) return;
+    const i = segmentAt(st.segs, st.elapsed);
+    if (i === -1) { finish(); return; }
+    if (i !== st.idx) { const prev = st.idx; st.idx = i; st.beepSec = null; onChange(prev); }
+    const rem = Math.ceil(st.segs[i].end - st.elapsed);
+    if (st.running && rem >= 1 && rem <= 3 && st.beepSec !== rem) { st.beepSec = rem; tone(660, 0.1, 0); }
+    render();
+  }
+
+  function finish() {
+    st.active = false; st.running = false;
+    unlock();
+    tone(880, 0.2, 0); tone(1175, 0.2, 0.22); tone(1568, 0.35, 0.44);
+    $('doneText').textContent = fmt(st.total) + ' ridden across ' + st.segs.length + ' segments.';
+    $('done').hidden = false;
+    document.body.classList.remove('paused');
+  }
+
+  function startRide() {
+    const r = parseScript(script.value);
+    if (!r.segments.length || r.errors.length) {
+      $('err').textContent = r.errors.length ? r.errors.join('\n') : 'Add at least one segment to start.';
+      $('err').scrollIntoView({ block: 'center' });
+      return;
+    }
+    try { if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume(); } catch (e) { ac = null; }
+    st.segs = r.segments; st.total = r.total; st.elapsed = 0; st.idx = 0; st.beepSec = null;
+    st.active = true; st.running = true; st.last = performance.now();
+    $('setup').hidden = true; $('ride').hidden = false; $('done').hidden = true;
+    $('pause').textContent = 'Pause';
+    document.body.classList.remove('paused');
+    st.ph = drawProfile($('live'), st.segs, st.total, true);
+    lock();
+    tone(880, 0.15, 0);
+    render();
+    poll();
+  }
+
+  function backToSetup() {
+    st.active = false; st.running = false; unlock();
+    $('ride').hidden = true; $('setup').hidden = false;
+    document.body.classList.remove('paused');
+  }
+
+  function togglePause() {
+    if (!st.active) return;
+    st.running = !st.running; st.last = performance.now();
+    $('pause').textContent = st.running ? 'Pause' : 'Resume';
+    document.body.classList.toggle('paused', !st.running);
+    render();
+  }
+
+  function skip() {
+    if (!st.active) return;
+    st.elapsed = st.segs[st.idx].end;
+    tick();
+  }
+
+  let endArmed = null;
+  function endRide() {
+    if (endArmed) { clearTimeout(endArmed); endArmed = null; $('end').textContent = 'End ride'; backToSetup(); return; }
+    $('end').textContent = 'Tap again to end';
+    endArmed = setTimeout(function () { endArmed = null; $('end').textContent = 'End ride'; }, 3000);
+  }
+
+  $('start').addEventListener('click', startRide);
+  $('pause').addEventListener('click', togglePause);
+  $('skip').addEventListener('click', skip);
+  $('end').addEventListener('click', endRide);
+  $('back').addEventListener('click', backToSetup);
+  document.addEventListener('keydown', function (e) {
+    if (e.code === 'Space' && st.active && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON') { e.preventDefault(); togglePause(); }
+  });
+  setInterval(tick, 200);
+
+  /* Spotify (Authorization Code with PKCE, no client secret) */
+  const SCOPES = 'user-read-playback-state user-modify-playback-state';
+  const redirectUri = location.origin + location.pathname;
+  const SP = { cid: '', tok: null, state: null, fetchedAt: 0, lastDevice: null, lockUntil: 0, busy: Promise.resolve(), msgTimer: null };
+
+  function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  function lsDel(k) { try { localStorage.removeItem(k); } catch (e) {} }
+  function b64url(buf) {
+    let s = ''; new Uint8Array(buf).forEach(function (b) { s += String.fromCharCode(b); });
+    return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function randStr(n) { const a = new Uint8Array(n); crypto.getRandomValues(a); return b64url(a); }
+  function spNote(t) { $('spNote').textContent = t || ''; }
+
+  function updateSpSetup() {
+    const on = !!SP.tok;
+    $('spStatus').textContent = on ? 'Connected' : 'Not connected';
+    $('spConnect').textContent = on ? 'Reconnect' : 'Connect Spotify';
+    $('spDisconnect').hidden = !on;
+    if (on) $('spCard').open = false;
+    renderSpot();
+  }
+
+  async function connect() {
+    const cid = $('spCid').value.trim();
+    if (!cid) { spNote('Paste your Client ID first.'); return; }
+    if (location.protocol === 'file:') { spNote('Spotify sign-in needs this page on a web address (https://). It cannot run from a file.'); return; }
+    if (!(window.crypto && crypto.subtle)) { spNote('Spotify sign-in needs a secure (https) address.'); return; }
+    lsSet('ridecues-sp-cid', cid); SP.cid = cid;
+    const verifier = randStr(64);
+    const challenge = b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
+    const state = randStr(16);
+    lsSet('ridecues-sp-verifier', verifier); lsSet('ridecues-sp-state', state);
+    const q = new URLSearchParams({ response_type: 'code', client_id: cid, scope: SCOPES, redirect_uri: redirectUri, code_challenge_method: 'S256', code_challenge: challenge, state: state });
+    location.href = 'https://accounts.spotify.com/authorize?' + q.toString();
+  }
+
+  async function tokenRequest(body) {
+    try {
+      const r = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error_description || j.error || ('HTTP ' + r.status));
+      SP.tok = { access: j.access_token, refresh: j.refresh_token || (SP.tok && SP.tok.refresh), exp: Date.now() + j.expires_in * 1000 };
+      lsSet('ridecues-sp-tok', JSON.stringify(SP.tok));
+      return true;
+    } catch (e) {
+      spNote('Spotify sign-in failed: ' + e.message + '. Check the Client ID and that the redirect URI matches exactly.');
+      return false;
+    }
+  }
+
+  async function handleRedirect() {
+    const p = new URLSearchParams(location.search);
+    if (!p.has('code') && !p.has('error')) return;
+    const code = p.get('code'), err = p.get('error'), st2 = p.get('state');
+    history.replaceState(null, '', location.pathname);
+    if (err) { spNote('Spotify sign-in was cancelled (' + err + ').'); return; }
+    if (!st2 || st2 !== lsGet('ridecues-sp-state')) { spNote('Sign-in check failed. Tap Connect Spotify again.'); return; }
+    const ok = await tokenRequest(new URLSearchParams({
+      grant_type: 'authorization_code', code: code, redirect_uri: redirectUri,
+      client_id: lsGet('ridecues-sp-cid') || '', code_verifier: lsGet('ridecues-sp-verifier') || ''
+    }));
+    lsDel('ridecues-sp-verifier'); lsDel('ridecues-sp-state');
+    if (ok) spNote('Connected. Start your podcast in Spotify, then start the ride.');
+  }
+
+  async function token() {
+    if (!SP.tok) return null;
+    if (Date.now() > SP.tok.exp - 60000) {
+      const ok = await tokenRequest(new URLSearchParams({ grant_type: 'refresh_token', refresh_token: SP.tok.refresh, client_id: SP.cid }));
+      if (!ok) return null;
+    }
+    return SP.tok.access;
+  }
+
+  async function api(method, path, query) {
+    const t = await token();
+    if (!t) throw { code: 'auth' };
+    const url = 'https://api.spotify.com/v1' + path + (query ? '?' + new URLSearchParams(query).toString() : '');
+    const r = await fetch(url, { method: method, headers: { Authorization: 'Bearer ' + t } });
+    if (r.status === 204) return { status: 204, data: null };
+    let j = null; try { j = await r.json(); } catch (e) {}
+    if (r.status === 429) throw { code: 'rate' };
+    if (!r.ok) throw { code: r.status, reason: j && j.error && j.error.reason, message: j && j.error && j.error.message };
+    return { status: r.status, data: j };
+  }
+
+  function spMsg(text) {
+    $('spMsg').textContent = text || '';
+    clearTimeout(SP.msgTimer);
+    if (text) SP.msgTimer = setTimeout(function () { $('spMsg').textContent = ''; }, 6000);
+  }
+  function spErr(e) {
+    if (e && e.code === 'auth') spMsg('Spotify is not connected. Reconnect on the setup screen.');
+    else if (e && e.code === 401) spMsg('Spotify session expired. Reconnect on the setup screen.');
+    else if (e && e.code === 404) spMsg('Spotify cannot find your phone. Open the Spotify app and press play once.');
+    else if (e && e.code === 403 && e.reason === 'PREMIUM_REQUIRED') spMsg('Spotify says this needs Premium.');
+    else if (e && e.code === 403) spMsg('Spotify refused this. Check that you approved playback control.');
+    else if (e && e.code === 'rate') spMsg('Spotify is rate limiting. Wait a few seconds.');
+    else if (e instanceof TypeError) spMsg('Cannot reach Spotify. Check your connection.');
+    else spMsg((e && e.message) || 'Spotify error.');
+  }
+
+  function curProgress() {
+    const s = SP.state;
+    if (!s) return 0;
+    return s.playing ? Math.min(s.dur, s.progress + (performance.now() - SP.fetchedAt)) : s.progress;
+  }
+
+  function renderSpot() {
+    const box = $('spot');
+    box.hidden = !SP.tok;
+    if (!SP.tok) return;
+    const s = SP.state;
+    $('spTitle').textContent = s ? s.title : 'Nothing playing';
+    $('spSub').textContent = s ? (s.sub ? s.sub + '  ·  ' : '') + fmt(curProgress() / 1000) + ' / ' + fmt(s.dur / 1000) : 'Open Spotify and press play';
+    $('spPlay').textContent = s && s.playing ? 'Pause' : 'Play';
+  }
+
+  async function poll() {
+    if (!SP.tok) return;
+    try {
+      const r = await api('GET', '/me/player', { additional_types: 'episode,track' });
+      if (performance.now() < SP.lockUntil) return;
+      const d = r.data;
+      if (r.status === 204 || !d || !d.item) {
+        SP.state = null;
+      } else {
+        SP.state = {
+          playing: !!d.is_playing, progress: d.progress_ms || 0, dur: d.item.duration_ms || 0, title: d.item.name || '',
+          sub: d.item.show ? d.item.show.name : (d.item.artists || []).map(function (a) { return a.name; }).join(', ')
+        };
+        SP.fetchedAt = performance.now();
+        if (d.device && d.device.id) SP.lastDevice = d.device.id;
+      }
+      renderSpot();
+    } catch (e) { spErr(e); }
+  }
+
+  function queue(fn) {
+    SP.busy = SP.busy.then(fn).catch(function (e) { spErr(e); setTimeout(poll, 1200); });
+    return SP.busy;
+  }
+
+  function seekBy(delta) {
+    const s = SP.state;
+    if (!s) { spMsg('Start your podcast in Spotify on this phone first.'); return; }
+    const target = Math.max(0, Math.min(Math.max(0, s.dur - 1000), Math.round(curProgress() + delta)));
+    s.progress = target; SP.fetchedAt = performance.now(); SP.lockUntil = performance.now() + 2000;
+    renderSpot();
+    queue(function () { return api('PUT', '/me/player/seek', { position_ms: String(target) }); });
+  }
+
+  function togglePlay() {
+    const s = SP.state;
+    const wasPlaying = !!(s && s.playing);
+    if (s) { s.progress = curProgress(); SP.fetchedAt = performance.now(); s.playing = !wasPlaying; SP.lockUntil = performance.now() + 2000; renderSpot(); }
+    const q = (!wasPlaying && !s && SP.lastDevice) ? { device_id: SP.lastDevice } : undefined;
+    queue(function () { return api('PUT', wasPlaying ? '/me/player/pause' : '/me/player/play', q); });
+  }
+
+  $('spRedirect').textContent = redirectUri;
+  $('spCopy').addEventListener('click', function () {
+    try { navigator.clipboard.writeText(redirectUri).then(function () { spNote('Redirect URI copied.'); }, function () { spNote('Press and hold the address to copy it.'); }); }
+    catch (e) { spNote('Press and hold the address to copy it.'); }
+  });
+  $('spCid').addEventListener('input', function (e) { lsSet('ridecues-sp-cid', e.target.value.trim()); });
+  $('spConnect').addEventListener('click', connect);
+  $('spDisconnect').addEventListener('click', function () {
+    SP.tok = null; SP.state = null; lsDel('ridecues-sp-tok'); spNote('Disconnected.'); updateSpSetup();
+  });
+  $('spBack').addEventListener('click', function () { seekBy(-15000); });
+  $('spFwd').addEventListener('click', function () { seekBy(15000); });
+  $('spPlay').addEventListener('click', togglePlay);
+  setInterval(function () { if (st.active && SP.tok) renderSpot(); }, 1000);
+  setInterval(function () { if (st.active && SP.tok && !document.hidden) poll(); }, 5000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && st.active) poll(); });
+
+  SP.cid = lsGet('ridecues-sp-cid') || '';
+  $('spCid').value = SP.cid;
+  try { SP.tok = JSON.parse(lsGet('ridecues-sp-tok') || 'null'); } catch (e) { SP.tok = null; }
+  handleRedirect().then(updateSpSetup);
+
+  /* Initial state */
+  let saved = null, savedBeep = null;
+  try { saved = localStorage.getItem('ridecues-script'); savedBeep = localStorage.getItem('ridecues-beep'); } catch (e) {}
+  if (savedBeep === '1') { opts.beep = true; $('optBeep').checked = true; }
+  if (saved && saved.trim()) { script.value = saved; refresh(); } else { selectPreset(0); }
+})();
+</script>
+</body>
+</html>
